@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# Discord Advanced All-in-One Bot Setup Script for VPS
-# Features: Welcome, Verify, Giveaway, Moderation, Auto-Role, Fun Commands
-
+# Discord Slash Commands Bot Auto-Installer with Giveaway, Ticket & Welcome
 echo "=========================================="
-echo "    DISCORD ULTIMATE BOT AUTO-INSTALLER"
+echo "    DISCORD SLASH COMMANDS BOT INSTALLER"
 echo "=========================================="
 
 # 1. Node.js Check & Install
@@ -18,23 +16,23 @@ else
 fi
 
 # 2. Project Directory Setup
-BOT_DIR="discord-ultimate-bot"
+BOT_DIR="discord-slash-bot"
 mkdir -p $BOT_DIR
 cd $BOT_DIR
 
 # 3. User se Credentials Lena
 echo ""
 read -p "Apna Discord Bot Token daalein: " BOT_TOKEN
+read -p "Apni Discord Client ID (Application ID) daalein: " CLIENT_ID
 read -p "Apni Discord Admin User ID daalein: " ADMIN_ID
-read -p "Default User Role ID daalein (Welcome/Auto-role ke liye): " ROLE_ID
-read -p "Verification Role ID daalein (Verify hone par milne wala role): " VERIFY_ROLE_ID
+read -p "Default Welcome Role ID daalein: " ROLE_ID
 
 # 4. Package.json create karna
 cat << 'EOF' > package.json
 {
-  "name": "discord-ultimate-bot",
-  "version": "2.0.0",
-  "description": "Advanced All-in-One Discord Bot with Giveaway, Verify, Welcome & Mod",
+  "name": "discord-slash-bot",
+  "version": "3.0.0",
+  "description": "Discord Bot with Slash Commands, Giveaway, Tickets, and Welcome",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
@@ -47,7 +45,7 @@ EOF
 
 # 5. Bot Code (bot.js) Create Karna
 cat << EOF > bot.js
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -59,254 +57,207 @@ const client = new Client({
 });
 
 const TOKEN = "$BOT_TOKEN";
+const CLIENT_ID = "$CLIENT_ID";
 const ADMIN_ID = "$ADMIN_ID";
 const ROLE_ID = "$ROLE_ID";
-const VERIFY_ROLE_ID = "$VERIFY_ROLE_ID";
+
+// Register Slash Commands
+const commands = [
+    new SlashCommandBuilder().setName('ping').setDescription('Bot ki latency check karein'),
+    new SlashCommandBuilder().setName('serverinfo').setDescription('Server ki jankari dekhein'),
+    new SlashCommandBuilder().setName('help').setDescription('Saare commands ki list dekhein'),
+    new SlashCommandBuilder()
+        .setName('giveaway')
+        .setDescription('Naya giveaway shuru karein')
+        .addStringOption(option => option.setName('prize').setDescription('Giveaway ka prize kya hai?').setRequired(true))
+        .addStringOption(option => option.setName('duration').setDescription('Kitne samay ke liye? (jaise 1m, 1h, 1d)').setRequired(true))
+        .addIntegerOption(option => option.setName('winners').setDescription('Kitne winners honge?').setRequired(true)),
+    new SlashCommandBuilder().setName('ticketsetup').setDescription('Server me Ticket panel setup karein'),
+    new SlashCommandBuilder()
+        .setName('clear')
+        .setDescription('Messages delete karein')
+        .addIntegerOption(option => option.setName('count').setDescription('Kitne messages delete karne hain (1-100)').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('kick')
+        .setDescription('Member ko kick karein')
+        .addUserOption(option => option.setName('target').setDescription('Kisko kick karna hai?').setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('ban')
+        .setDescription('Member ko ban karein')
+        .addUserOption(option => option.setName('target').setDescription('Kisko ban karna hai?').setRequired(true))
+].map(command => command.toJSON());
+
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+(async () => {
+    try {
+        console.log('[+] Slash commands (/) register ki ja rahi hain...');
+        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+        console.log('[+] Slash commands successfully register ho gayi hain!');
+    } catch (error) {
+        console.error(error);
+    }
+})();
 
 client.once('ready', () => {
     console.log(\`[ONLINE] Bot \${client.user.tag} safalta-purnaak online ho chuka hai!\`);
-    client.user.setActivity('!help | Advanced Security & Fun', { type: 3 });
+    client.user.setActivity('/help | Managing Server', { type: 3 });
 });
 
-// Auto-Role & Welcome System on Member Join
+// Welcome System
 client.on('guildMemberAdd', member => {
-    if (ROLE_ID && ROLE_ID !== "") {
-        member.roles.add(ROLE_ID).catch(console.error);
-    }
-    
-    const welcomeEmbed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('🎉 Naya Sadasya Server Mein Aaya!')
-        .setDescription(\`Swagat hai \${member} (\${member.user.tag}) hamare server mein! \nKripya rules channel check karein.\`)
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setTimestamp();
-    
+    if (ROLE_ID) member.roles.add(ROLE_ID).catch(() => {});
     const channel = member.guild.systemChannel;
-    if (channel) channel.send({ embeds: [welcomeEmbed] });
-});
-
-// Advanced Commands Logic
-client.on('messageCreate', async message => {
-    if (message.author.bot) return;
-    const prefix = '!';
-    if (!message.content.startsWith(prefix)) return;
-
-    const args = message.content.slice(prefix.length).trim().split(/ +/);
-    const command = args.shift().toLowerCase();
-
-    // 1. Help Menu
-    if (command === 'help') {
-        const helpEmbed = new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setTitle('🤖 Ultimate Bot Command Center')
-            .setDescription('Yahan aapke saare features aur commands ki list hai:')
-            .addFields(
-                { name: '🛡️ Moderation', value: '\`!kick\`, \`!ban\`, \`!clear\`, \`!mute\`, \`!unmute\`, \`!lock\`, \`!unlock\`' },
-                { name: '🎁 Giveaway & Utility', value: '\`!giveaway [prize]\`, \`!verifyembed\`, \`!ping\`, \`!serverinfo\`, \`!userinfo\`' },
-                { name: '💬 Fun & Interaction', value: '\`!say [text]\`, \`!poll [question]\`' }
-            )
-            .setFooter({ text: 'Powered by VPS Auto Setup' })
+    if (channel) {
+        const embed = new EmbedBuilder()
+            .setColor(0x00FF00)
+            .setTitle('🎉 Naya Sadasya Aaya!')
+            .setDescription(\`Swagat hai \${member} (\${member.user.tag}) ka server mein!\`)
+            .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
             .setTimestamp();
-        message.reply({ embeds: [helpEmbed] });
-    }
-
-    // 2. Ping
-    else if (command === 'ping') {
-        message.reply(\`🏓 Pong! Latency: \${client.ws.ping}ms\`);
-    }
-
-    // 3. Server Info
-    else if (command === 'serverinfo') {
-        const sEmbed = new EmbedBuilder()
-            .setColor(0xF1C40F)
-            .setTitle(message.guild.name)
-            .setThumbnail(message.guild.iconURL({ dynamic: true }))
-            .addFields(
-                { name: '👑 Owner', value: \`<@\${message.guild.ownerId}>\`, inline: true },
-                { name: '👥 Total Members', value: \`\${message.guild.memberCount}\`, inline: true },
-                { name: '📅 Created On', value: \`\${message.guild.createdAt.toDateString()}\`, inline: true }
-            );
-        message.reply({ embeds: [sEmbed] });
-    }
-
-    // 4. User Info
-    else if (command === 'userinfo') {
-        const target = message.mentions.users.first() || message.author;
-        const member = message.guild.members.cache.get(target.id);
-        const uEmbed = new EmbedBuilder()
-            .setColor(0x3498DB)
-            .setTitle(\`User Info: \${target.tag}\`)
-            .setThumbnail(target.displayAvatarURL({ dynamic: true }))
-            .addFields(
-                { name: 'ID', value: target.id, inline: true },
-                { name: 'Joined Server', value: member.joinedAt.toDateString(), inline: true }
-            );
-        message.reply({ embeds: [uEmbed] });
-    }
-
-    // 5. Clear Messages (Purge)
-    else if (command === 'clear') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-            return message.reply("❌ Aapke paas messages delete karne ki permission nahi hai!");
-        }
-        let count = parseInt(args[0]);
-        if (!count || count < 1 || count > 100) return message.reply("⚠️ Kripya 1 se 100 ke beech ki sankhya dein!");
-        await message.channel.bulkDelete(count, true).catch(() => message.reply("⚠️ Purane messages delete nahi kiye ja sakte!"));
-        const m = await message.channel.send(\`✅ \${count} messages delete kar diye gaye.\`);
-        setTimeout(() => m.delete().catch(() => {}), 3000);
-    }
-
-    // 6. Kick Command
-    else if (command === 'kick') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
-            return message.reply("❌ Aapke paas members ko kick karne ki permission nahi hai!");
-        }
-        const member = message.mentions.members.first();
-        if (!member) return message.reply("⚠️️ Kripya kisi member ko mention karein!");
-        await member.kick().catch(() => message.reply("❌ Main is member ko kick nahi kar saka!"));
-        message.reply(\`✅ \${member.user.tag} ko server se kick kar diya gaya.\`);
-    }
-
-    // 7. Ban Command
-    else if (command === 'ban') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-            return message.reply("❌ Aapke paas members ko ban karne ki permission nahi hai!");
-        }
-        const member = message.mentions.members.first();
-        if (!member) return message.reply("⚠️ Kripya kisi member ko mention karein!");
-        await member.ban().catch(() => message.reply("❌ Main is member ko ban nahi kar saka!"));
-        message.reply(\`✅ \${member.user.tag} ko ban kar diya gaya.\`);
-    }
-
-    // 8. Mute Command
-    else if (command === 'mute') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-            return message.reply("❌ Aapke paas member mute karne ki permission nahi hai!");
-        }
-        const member = message.mentions.members.first();
-        if (!member) return message.reply("⚠️ Kripya mute karne ke liye user mention karein!");
-        
-        let muteRole = message.guild.roles.cache.find(r => r.name === 'Muted');
-        if (!muteRole) {
-            try {
-                muteRole = await message.guild.roles.create({
-                    name: 'Muted',
-                    permissions: []
-                });
-                message.guild.channels.cache.forEach(async (channel) => {
-                    await channel.permissionOverwrites.create(muteRole, { SendMessages: false, Speak: false });
-                });
-            } catch (e) {
-                return message.reply("❌ 'Muted' role create nahi ho paya!");
-            }
-        }
-        await member.roles.add(muteRole);
-        message.reply(\`🔇 \${member.user.tag} ko successfully mute kar diya gaya hai.\`);
-    }
-
-    // 9. Unmute Command
-    else if (command === 'unmute') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-            return message.reply("❌ Permission denied!");
-        }
-        const member = message.mentions.members.first();
-        if (!member) return message.reply("⚠️ User mention karein!");
-        const muteRole = message.guild.roles.cache.find(r => r.name === 'Muted');
-        if (muteRole) await member.roles.remove(muteRole);
-        message.reply(\`🔊 \/** \${member.user.tag} ko unmute kar diya gaya hai.\`);
-    }
-
-    // 10. Lock Channel Command
-    else if (command === 'lock') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) return message.reply("❌ Permission denied!");
-        await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false });
-        message.reply("🔒 Ye channel lock kar diya gaya hai!");
-    }
-
-    // 11. Unlock Channel Command
-    else if (command === 'unlock') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) return message.reply("❌ Permission denied!");
-        await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: true });
-        message.reply("🔓 Ye channel unlock kar diya gaya hai!");
-    }
-
-    // 12. Verification System (Embed + Button Setup)
-    else if (command === 'verifyembed') {
-        if (message.author.id !== ADMIN_ID && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply("❌ Ye command sirf Admin chala sakta hai!");
-        }
-        const verifyEmbed = new EmbedBuilder()
-            .setColor(0x00AE86)
-            .setTitle('🔐 Server Verification')
-            .setDescription('Server ke andar access paane ke liye neeche diye gaye **Verify** button par click karein.');
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('verify_btn')
-                .setLabel('Verify Karein')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('✅')
-        );
-
-        message.channel.send({ embeds: [verifyEmbed], components: [row] });
-        message.delete().catch(() => {});
-    }
-
-    // 13. Giveaway System Start
-    else if (command === 'giveaway') {
-        if (message.author.id !== ADMIN_ID && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply("❌ Aapke paas Giveaway shuru karne ki permission nahi hai!");
-        }
-        const prize = args.join(' ');
-        if (!prize) return message.reply("⚠️ Kripya prize ka naam likhein! (Jaise: \`!giveaway Nitro Classic\` )");
-
-        const gEmbed = new EmbedBuilder()
-            .setColor(0xE91E63)
-            .setTitle('🎉 GIVEAWAY SHURU HO CHUKA HAI! 🎉')
-            .setDescription(\`Prize: **\${prize}**\nNeeche diye gaye button par click karke participate karein!\`)
-            .setTimestamp();
-
-        const gRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('join_giveaway')
-                .setLabel('🎉 Participate Karein')
-                .setStyle(ButtonStyle.Primary)
-        );
-
-        const gMsg = await message.channel.send({ embeds: [gEmbed], components: [gRow] });
-        message.delete().catch(() => {});
-    }
-
-    // 14. Say Command
-    else if (command === 'say') {
-        if (message.author.id !== ADMIN_ID) return message.reply("❌ Sirf Admin use kar sakta hai!");
-        const text = args.join(' ');
-        if (!text) return message.reply("⚠️ Kuch text toh likhein!");
-        message.delete().catch(() => {});
-        message.channel.send(text);
+        channel.send({ embeds: [embed] });
     }
 });
 
-// Button Interaction Handler (Verify & Giveaway Button Logic)
+// Interaction / Slash Commands & Buttons Handler
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
+    if (interaction.isChatInputCommand()) {
+        const { commandName, options } = interaction;
 
-    // Verify Button Click Logic
-    if (interaction.customId === 'verify_btn') {
-        if (!VERIFY_ROLE_ID || VERIFY_ROLE_ID === "") {
-            return interaction.reply({ content: "⚠️ Server owner ne abhi Verify Role configure nahi kiya hai.", ephemeral: true });
+        if (commandName === 'ping') {
+            await interaction.reply({ content: \`🏓 Pong! \${client.ws.ping}ms latency.\`, ephemeral: true });
+        } 
+        else if (commandName === 'serverinfo') {
+            const embed = new EmbedBuilder()
+                .setColor(0xF1C40F)
+                .setTitle(interaction.guild.name)
+                .addFields(
+                    { name: 'Total Members', value: \`\${interaction.guild.memberCount}\`, inline: true },
+                    { name: 'Owner', value: \`<@\${interaction.guild.ownerId}>\`, inline: true }
+                );
+            await interaction.reply({ embeds: [embed] });
+        } 
+        else if (commandName === 'help') {
+            const embed = new EmbedBuilder()
+                .setColor(0x5865F2)
+                .setTitle('🤖 Bot Command Menu')
+                .setDescription('Yahan saare slash (/) commands ki list hai:')
+                .addFields(
+                    { name: '/ping', value: 'Bot latency check karein' },
+                    { name: '/serverinfo', value: 'Server ki details dekhein' },
+                    { name: '/giveaway', value: 'Naya giveaway start karein' },
+                    { name: '/ticketsetup', value: 'Ticket panel create karein' },
+                    { name: '/clear', value: 'Chat clean karein' },
+                    { name: '/kick & /ban', value: 'Moderation commands' }
+                );
+            await interaction.reply({ embeds: [embed], ephemeral: true });
         }
-        const member = interaction.guild.members.cache.get(interaction.user.id);
-        if (member.roles.cache.has(VERIFY_ROLE_ID)) {
-            return interaction.reply({ content: "⚠️ Aap pehle se verified hain!", ephemeral: true });
-        }
-        await member.roles.add(VERIFY_ROLE_ID).catch(() => {});
-        return interaction.reply({ content: "✅ Aap successfully verify ho chuke hain aur aapko role mil gaya hai!", ephemeral: true });
-    }
+        else if (commandName === 'giveaway') {
+            if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+                return interaction.reply({ content: "❌ Aapke paas giveaway shuru karne ki permission nahi hai!", ephemeral: true });
+            }
+            const prize = options.getString('prize');
+            const duration = options.getString('duration');
+            const winners = options.getInteger('winners');
 
-    // Giveaway Button Click Logic
-    if (interaction.customId === 'join_giveaway') {
-        return interaction.reply({ content: "🎉 Badhai ho! Aapka naam giveaway mein dard kar liya gaya hai.", ephemeral: true });
+            const gEmbed = new EmbedBuilder()
+                .setColor(0xE91E63)
+                .setTitle('🎉 GIVEAWAY SHURU HO CHUKA HAI! 🎉')
+                .setDescription(\`Prize: **\${prize}**\nDuration: \${duration}\nWinners: \${winners}\n\nNeeche diye gaye button par click karke participate karein!\`)
+                .setTimestamp();
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('join_gw').setLabel('🎉 Join Giveaway').setStyle(ButtonStyle.Primary)
+            );
+
+            await interaction.reply({ embeds: [gEmbed], components: [row] });
+        }
+        else if (commandName === 'ticketsetup') {
+            if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+                return interaction.reply({ content: "❌ Permission denied!", ephemeral: true });
+            }
+            const tEmbed = new EmbedBuilder()
+                .setColor(0x3498DB)
+                .setTitle('🎫 Support Tickets')
+                .setDescription('Kisi bhi sahayata ya baat ke liye neeche diye gaye button par click karke ticket banayein.');
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('create_ticket').setLabel('Create Ticket').setStyle(ButtonStyle.Success).setEmoji('🎫')
+            );
+
+            await interaction.reply({ embeds: [tEmbed], components: [row] });
+        }
+        else if (commandName === 'clear') {
+            if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+                return interaction.reply({ content: "❌ Permission denied!", ephemeral: true });
+            }
+            const count = options.getInteger('count');
+            await interaction.channel.bulkDelete(count, true).catch(() => {});
+            await interaction.reply({ content: \`✅ \${count} messages delete kar diye gaye.\`, ephemeral: true });
+        }
+        else if (commandName === 'kick') {
+            if (!interaction.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
+                return interaction.reply({ content: "❌ Permission denied!", ephemeral: true });
+            }
+            const target = options.getMember('target');
+            await target.kick().catch(() => {});
+            await interaction.reply({ content: \`✅ Member ko kick kar diya gaya.\`, ephemeral: true });
+        }
+        else if (commandName === 'ban') {
+            if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
+                return interaction.reply({ content: "❌ Permission denied!", ephemeral: true });
+            }
+            const target = options.getMember('target');
+            await target.ban().catch(() => {});
+            await interaction.reply({ content: \`✅ Member ko ban kar diya gaya.\`, ephemeral: true });
+        }
+    } 
+    else if (interaction.isButton()) {
+        // Ticket Create Button
+        if (interaction.customId === 'create_ticket') {
+            const guild = interaction.guild;
+            const channelName = \`ticket-\${interaction.user.username}\`;
+            
+            const existingChannel = guild.channels.cache.find(c => c.name === channelName);
+            if (existingChannel) {
+                return interaction.reply({ content: \`⚠️️ Aapka pehle se ek ticket khula hai: \${existingChannel}\`, ephemeral: true });
+            }
+
+            const ticketChannel = await guild.channels.create({
+                name: channelName,
+                type: 0, // Text Channel
+                permissionOverwrites: [
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+                ]
+            });
+
+            const controlRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('close_ticket').setLabel('🔒 Close').setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId('claim_ticket').setLabel('🙋‍♂️ Claim').setStyle(ButtonStyle.Secondary)
+            );
+
+            const tOpenedEmbed = new EmbedBuilder()
+                .setColor(0x00AE86)
+                .setTitle('Support Ticket')
+                .setDescription('Staff jald hi aapse yahan judega. Aap apni samasya likhein.');
+
+            await ticketChannel.send({ content: \`<@\${interaction.user.id}> Swagat hai!\`, embeds: [tOpenedEmbed], components: [controlRow] });
+            await interaction.reply({ content: \`✅ Aapka ticket ban gaya hai: \${ticketChannel}\`, ephemeral: true });
+        }
+        // Close Ticket Button
+        else if (interaction.customId === 'close_ticket') {
+            await interaction.reply({ content: '🔒 Ticket 5 seconds mein delete ho raha hai...' });
+            setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+        }
+        // Claim Ticket Button
+        else if (interaction.customId === 'claim_ticket') {
+            await interaction.reply({ content: \`🙋‍♂️️ Ye ticket <@\textbf{\${interaction.user.id}}> dwara claim kar liya gaya hai!\` });
+        }
+        // Join Giveaway Button
+        else if (interaction.customId === 'join_gw') {
+            await interaction.reply({ content: '🎉 Badhai ho! Aapka naam giveaway mein darj ho gaya hai.', ephemeral: true });
+        }
     }
 });
 
@@ -317,19 +268,18 @@ EOF
 echo "[+] Bot dependencies install ho rahi hain..."
 npm install
 
-# 7. PM2 (Process Manager) se Background me 24/7 Run Karna
+# 7. PM2 se 24/7 Run Karna
 if ! command -v pm2 &> /dev/null
 then
-    echo "[+] PM2 install kiya ja raha hai taaki bot background me 24/7 chale..."
+    echo "[+] PM2 install kiya ja raha hai..."
     sudo npm install -g pm2
 fi
 
-echo "[+] Bot ko PM2 ke sath start kiya ja raha hai..."
-pm2 start bot.js --name "discord-ultimate-bot"
+pm2 start bot.js --name "discord-slash-bot"
 pm2 save
 pm2 startup
 
 echo "=========================================="
-echo " SAARE FEATURES KE SATH BOT ONLINE HO GAYA HAI!"
+echo " SABHI SLASH COMMANDS AUR FEATURES LIVE HO GAYE HAIN!"
 echo "=========================================="
 EOF
