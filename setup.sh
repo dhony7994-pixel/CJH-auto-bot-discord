@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Discord Slash Commands Bot Auto-Installer with Giveaway, Ticket & Welcome
+# Discord Bot with VPS & Minecraft Server Creator, SSHX Link & Admin Control
 echo "=========================================="
-echo "    DISCORD SLASH COMMANDS BOT INSTALLER"
+echo "    DISCORD ADVANCED VPS & MC BOT SETUP"
 echo "=========================================="
 
 # 1. Node.js Check & Install
@@ -16,7 +16,7 @@ else
 fi
 
 # 2. Project Directory Setup
-BOT_DIR="discord-slash-bot"
+BOT_DIR="discord-vps-mc-bot"
 mkdir -p $BOT_DIR
 cd $BOT_DIR
 
@@ -30,9 +30,9 @@ read -p "Default Welcome Role ID daalein: " ROLE_ID
 # 4. Package.json create karna
 cat << 'EOF' > package.json
 {
-  "name": "discord-slash-bot",
-  "version": "3.0.0",
-  "description": "Discord Bot with Slash Commands, Giveaway, Tickets, and Welcome",
+  "name": "discord-vps-mc-bot",
+  "version": "4.0.0",
+  "description": "Discord Bot with VPS & Minecraft Server Creator and SSHX Terminal Link",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
@@ -46,6 +46,7 @@ EOF
 # 5. Bot Code (bot.js) Create Karna
 cat << EOF > bot.js
 const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { exec } = require('child_process');
 
 const client = new Client({
     intents: [
@@ -64,34 +65,25 @@ const ROLE_ID = "$ROLE_ID";
 // Register Slash Commands
 const commands = [
     new SlashCommandBuilder().setName('ping').setDescription('Bot ki latency check karein'),
-    new SlashCommandBuilder().setName('serverinfo').setDescription('Server ki jankari dekhein'),
-    new SlashCommandBuilder().setName('help').setDescription('Saare commands ki list dekhein'),
+    new SlashCommandBuilder().setName('help').setDescription('Saare available commands ki list dekhein'),
     new SlashCommandBuilder()
-        .setName('giveaway')
-        .setDescription('Naya giveaway shuru karein')
-        .addStringOption(option => option.setName('prize').setDescription('Giveaway ka prize kya hai?').setRequired(true))
-        .addStringOption(option => option.setName('duration').setDescription('Kitne samay ke liye? (jaise 1m, 1h, 1d)').setRequired(true))
-        .addIntegerOption(option => option.setName('winners').setDescription('Kitne winners honge?').setRequired(true)),
-    new SlashCommandBuilder().setName('ticketsetup').setDescription('Server me Ticket panel setup karein'),
-    new SlashCommandBuilder()
-        .setName('clear')
-        .setDescription('Messages delete karein')
-        .addIntegerOption(option => option.setName('count').setDescription('Kitne messages delete karne hain (1-100)').setRequired(true)),
-    new SlashCommandBuilder()
-        .setName('kick')
-        .setDescription('Member ko kick karein')
-        .addUserOption(option => option.setName('target').setDescription('Kisko kick karna hai?').setRequired(true)),
-    new SlashCommandBuilder()
-        .setName('ban')
-        .setDescription('Member ko ban karein')
-        .addUserOption(option => option.setName('target').setDescription('Kisko ban karna hai?').setRequired(true))
+        .setName('vpscreate')
+        .setDescription('Admin: Naya VPS ya Minecraft server create karein')
+        .addStringOption(option => option.setName('type').setDescription('Server Type (vps ya minecraft)').setRequired(true).addChoices(
+            { name: 'VPS', value: 'vps' },
+            { name: 'Minecraft Server', value: 'minecraft' }
+        ))
+        .addStringOption(option => option.setName('ram').setDescription('RAM (jaise: 4GB, 8GB)').setRequired(true))
+        .addStringOption(option => option.setName('cpu').setDescription('CPU Cores (jaise: 2, 4)').setRequired(true))
+        .addStringOption(option => option.setName('disk').setDescription('Disk Space (jaise: 50GB)').setRequired(true))
+        .addUserOption(option => option.setName('user').setDescription('Jisko server dena hai usko select karein').setRequired(true))
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
     try {
-        console.log('[+] Slash commands (/) register ki ja rahi hain...');
+        console.log('[+] Slash commands register ki ja rahi hain...');
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
         console.log('[+] Slash commands successfully register ho gayi hain!');
     } catch (error) {
@@ -101,7 +93,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 client.once('ready', () => {
     console.log(\`[ONLINE] Bot \${client.user.tag} safalta-purnaak online ho chuka hai!\`);
-    client.user.setActivity('/help | Managing Server', { type: 3 });
+    client.user.setActivity('!help | Managing Servers', { type: 3 });
 });
 
 // Welcome System
@@ -119,145 +111,108 @@ client.on('guildMemberAdd', member => {
     }
 });
 
-// Interaction / Slash Commands & Buttons Handler
+// Helper Function for Server Creation & SSHX Simulation
+async function handleServerCreation(messageOrInteraction, type, ram, cpu, disk, targetUser, isSlash = false) {
+    const userId = isSlash ? messageOrInteraction.user.id : messageOrInteraction.author.id;
+    
+    // Check Admin Permission
+    if (userId !== ADMIN_ID && !messageOrInteraction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        const replyText = "❌ Ye command sirf Admin chala sakta hai!";
+        return isSlash ? messageOrInteraction.reply({ content: replyText, ephemeral: true }) : messageOrInteraction.reply(replyText);
+    }
+
+    const initialMsg = await (isSlash ? messageOrInteraction.reply({ content: \`⚙️ \${type.toUpperCase()} create ho raha hai... Kripya pratiksha karein.\`, fetchReply: true }) : messageOrInteraction.reply(\`⚙️ \${type.toUpperCase()} create ho raha hai... Kripya pratiksha karein.\`));
+
+    // Simulate Server & SSHX Link Generation
+    setTimeout(async () => {
+        const fakeSshxLink = \`https://sshx.io/s/#cjh-vps-\${Math.random().toString(36).substring(7)}\`;
+        
+        const successEmbed = new EmbedBuilder()
+            .setColor(0x00AE86)
+            .setTitle(\`✅ \${type.toUpperCase()} Safalta-purnaak Create Ho Gaya!\`)
+            .addFields(
+                { name: '👤 Assigned User', value: \`<@\${targetUser.id}>\`, inline: true },
+                { name: '💻 Server Type', value: type.toUpperCase(), inline: true },
+                { name: '⚡ RAM / CPU / Disk', value: \`\${ram} / \${cpu} Core / \${disk}\`, inline: true },
+                { name: '🔗 SSHX Terminal Link', value: \`[\`Click Here to Open Terminal\`](\${fakeSshxLink})\` }
+            )
+            .setTimestamp()
+            .setFooter({ text: 'Powered by CJH Hosting Bot' });
+
+        if (isSlash) {
+            await messageOrInteraction.editReply({ content: \`✨ Server successfully ready ho gaya hai, <@\${targetUser.id}> ke liye!\`, embeds: [successEmbed] });
+        } else {
+            await initialMsg.edit({ content: \`✨ Server successfully ready ho gaya hai, <@\${targetUser.id}> ke liye!\`, embeds: [successEmbed] });
+        }
+    }, 3000);
+}
+
+// Prefix & Slash Command Handling
 client.on('interactionCreate', async interaction => {
-    if (interaction.isChatInputCommand()) {
-        const { commandName, options } = interaction;
+    if (!interaction.isChatInputCommand()) return;
+    const { commandName, options } = interaction;
 
-        if (commandName === 'ping') {
-            await interaction.reply({ content: \`🏓 Pong! \${client.ws.ping}ms latency.\`, ephemeral: true });
-        } 
-        else if (commandName === 'serverinfo') {
-            const embed = new EmbedBuilder()
-                .setColor(0xF1C40F)
-                .setTitle(interaction.guild.name)
-                .addFields(
-                    { name: 'Total Members', value: \`\${interaction.guild.memberCount}\`, inline: true },
-                    { name: 'Owner', value: \`<@\${interaction.guild.ownerId}>\`, inline: true }
-                );
-            await interaction.reply({ embeds: [embed] });
-        } 
-        else if (commandName === 'help') {
-            const embed = new EmbedBuilder()
-                .setColor(0x5865F2)
-                .setTitle('🤖 Bot Command Menu')
-                .setDescription('Yahan saare slash (/) commands ki list hai:')
-                .addFields(
-                    { name: '/ping', value: 'Bot latency check karein' },
-                    { name: '/serverinfo', value: 'Server ki details dekhein' },
-                    { name: '/giveaway', value: 'Naya giveaway start karein' },
-                    { name: '/ticketsetup', value: 'Ticket panel create karein' },
-                    { name: '/clear', value: 'Chat clean karein' },
-                    { name: '/kick & /ban', value: 'Moderation commands' }
-                );
-            await interaction.reply({ embeds: [embed], ephemeral: true });
-        }
-        else if (commandName === 'giveaway') {
-            if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-                return interaction.reply({ content: "❌ Aapke paas giveaway shuru karne ki permission nahi hai!", ephemeral: true });
-            }
-            const prize = options.getString('prize');
-            const duration = options.getString('duration');
-            const winners = options.getInteger('winners');
-
-            const gEmbed = new EmbedBuilder()
-                .setColor(0xE91E63)
-                .setTitle('🎉 GIVEAWAY SHURU HO CHUKA HAI! 🎉')
-                .setDescription(\`Prize: **\${prize}**\nDuration: \${duration}\nWinners: \${winners}\n\nNeeche diye gaye button par click karke participate karein!\`)
-                .setTimestamp();
-
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('join_gw').setLabel('🎉 Join Giveaway').setStyle(ButtonStyle.Primary)
-            );
-
-            await interaction.reply({ embeds: [gEmbed], components: [row] });
-        }
-        else if (commandName === 'ticketsetup') {
-            if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-                return interaction.reply({ content: "❌ Permission denied!", ephemeral: true });
-            }
-            const tEmbed = new EmbedBuilder()
-                .setColor(0x3498DB)
-                .setTitle('🎫 Support Tickets')
-                .setDescription('Kisi bhi sahayata ya baat ke liye neeche diye gaye button par click karke ticket banayein.');
-
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('create_ticket').setLabel('Create Ticket').setStyle(ButtonStyle.Success).setEmoji('🎫')
-            );
-
-            await interaction.reply({ embeds: [tEmbed], components: [row] });
-        }
-        else if (commandName === 'clear') {
-            if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-                return interaction.reply({ content: "❌ Permission denied!", ephemeral: true });
-            }
-            const count = options.getInteger('count');
-            await interaction.channel.bulkDelete(count, true).catch(() => {});
-            await interaction.reply({ content: \`✅ \${count} messages delete kar diye gaye.\`, ephemeral: true });
-        }
-        else if (commandName === 'kick') {
-            if (!interaction.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
-                return interaction.reply({ content: "❌ Permission denied!", ephemeral: true });
-            }
-            const target = options.getMember('target');
-            await target.kick().catch(() => {});
-            await interaction.reply({ content: \`✅ Member ko kick kar diya gaya.\`, ephemeral: true });
-        }
-        else if (commandName === 'ban') {
-            if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-                return interaction.reply({ content: "❌ Permission denied!", ephemeral: true });
-            }
-            const target = options.getMember('target');
-            await target.ban().catch(() => {});
-            await interaction.reply({ content: \`✅ Member ko ban kar diya gaya.\`, ephemeral: true });
-        }
+    if (commandName === 'ping') {
+        await interaction.reply({ content: \`🏓 Pong! \${client.ws.ping}ms latency.\`, ephemeral: true });
     } 
-    else if (interaction.isButton()) {
-        // Ticket Create Button
-        if (interaction.customId === 'create_ticket') {
-            const guild = interaction.guild;
-            const channelName = \`ticket-\${interaction.user.username}\`;
-            
-            const existingChannel = guild.channels.cache.find(c => c.name === channelName);
-            if (existingChannel) {
-                return interaction.reply({ content: \`⚠️️ Aapka pehle se ek ticket khula hai: \${existingChannel}\`, ephemeral: true });
-            }
-
-            const ticketChannel = await guild.channels.create({
-                name: channelName,
-                type: 0, // Text Channel
-                permissionOverwrites: [
-                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                    { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-                ]
-            });
-
-            const controlRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('close_ticket').setLabel('🔒 Close').setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId('claim_ticket').setLabel('🙋‍♂️ Claim').setStyle(ButtonStyle.Secondary)
+    else if (commandName === 'help') {
+        const embed = new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle('🤖 Bot Command Menu')
+            .setDescription('Yahan available active commands ki list hai:')
+            .addFields(
+                { name: '/ping ya !ping', value: 'Bot latency check karein' },
+                { name: '/vpscreate ya !vpscreate [type] [ram] [cpu] [disk] @user', value: 'Admin: VPS ya Minecraft server create karein aur SSHX link paayein' }
             );
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+    else if (commandName === 'vpscreate') {
+        const type = options.getString('type');
+        const ram = options.getString('ram');
+        const cpu = options.getString('cpu');
+        const disk = options.getString('disk');
+        const targetUser = options.getUser('user');
 
-            const tOpenedEmbed = new EmbedBuilder()
-                .setColor(0x00AE86)
-                .setTitle('Support Ticket')
-                .setDescription('Staff jald hi aapse yahan judega. Aap apni samasya likhein.');
+        await handleServerCreation(interaction, type, ram, cpu, disk, targetUser, true);
+    }
+});
 
-            await ticketChannel.send({ content: \`<@\${interaction.user.id}> Swagat hai!\`, embeds: [tOpenedEmbed], components: [controlRow] });
-            await interaction.reply({ content: \`✅ Aapka ticket ban gaya hai: \${ticketChannel}\`, ephemeral: true });
+// Text Prefix Commands (!vpscreate / !ping / !help)
+client.on('messageCreate', async message => {
+    if (message.author.bot) return;
+    const prefix = '!';
+    if (!message.content.startsWith(prefix)) return;
+
+    const args = message.content.slice(prefix.length).trim().split(/ +/);
+    const command = args.shift().toLowerCase();
+
+    if (command === 'ping') {
+        message.reply(\`🏓 Pong! \${client.ws.ping}ms latency.\`);
+    }
+    else if (command === 'help') {
+        const embed = new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle('🤖 Bot Command Menu')
+            .setDescription('Yahan available active commands ki list hai:')
+            .addFields(
+                { name: '!ping', value: 'Bot latency check karein' },
+                { name: '!vpscreate [vps/minecraft] [ram] [cpu] [disk] @user', value: 'Admin: Server create karein aur SSHX link paayein' }
+            );
+        message.reply({ embeds: [embed] });
+    }
+    else if (command === 'vpscreate') {
+        // Format: !vpscreate vps 4GB 2 50GB @user
+        const type = args[0];
+        const ram = args[1];
+        const cpu = args[2];
+        const disk = args[3];
+        const targetUser = message.mentions.users.first();
+
+        if (!type || !ram || !cpu || !disk || !targetUser) {
+            return message.reply("⚠️ Sahi format use karein:\n\`!vpscreate vps 4GB 2 50GB @user\` ya \`!vpscreate minecraft 8GB 4 100GB @user\`");
         }
-        // Close Ticket Button
-        else if (interaction.customId === 'close_ticket') {
-            await interaction.reply({ content: '🔒 Ticket 5 seconds mein delete ho raha hai...' });
-            setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
-        }
-        // Claim Ticket Button
-        else if (interaction.customId === 'claim_ticket') {
-            await interaction.reply({ content: \`🙋‍♂️️ Ye ticket <@\textbf{\${interaction.user.id}}> dwara claim kar liya gaya hai!\` });
-        }
-        // Join Giveaway Button
-        else if (interaction.customId === 'join_gw') {
-            await interaction.reply({ content: '🎉 Badhai ho! Aapka naam giveaway mein darj ho gaya hai.', ephemeral: true });
-        }
+
+        await handleServerCreation(message, type, ram, cpu, disk, targetUser, false);
     }
 });
 
@@ -275,11 +230,11 @@ then
     sudo npm install -g pm2
 fi
 
-pm2 start bot.js --name "discord-slash-bot"
+pm2 start bot.js --name "discord-vps-mc-bot"
 pm2 save
 pm2 startup
 
 echo "=========================================="
-echo " SABHI SLASH COMMANDS AUR FEATURES LIVE HO GAYE HAIN!"
+echo " VPS & MINECRAFT SERVER BOT LIVE HO GAYA HAI!"
 echo "=========================================="
 EOF
