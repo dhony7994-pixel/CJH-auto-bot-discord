@@ -44,8 +44,8 @@ create_bot() {
     cat << 'EOF' > package.json
 {
   "name": "discord-security-bot",
-  "version": "8.0.0",
-  "description": "Advanced Discord Security & Moderation Bot",
+  "version": "9.0.0",
+  "description": "Fixed Discord Security & Moderation Bot",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
@@ -65,8 +65,8 @@ EOF
 }
 EOF
 
-    cat << 'EOF' > bot.js
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, REST, Routes, SlashCommandBuilder } = require('discord.js');
+    cat << EOF > bot.js
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, REST, Routes, SlashCommandBuilder, ActivityType } = require('discord.js');
 const fs = require('fs');
 
 const client = new Client({
@@ -84,12 +84,12 @@ if (fs.existsSync('./config.json')) {
     try {
         config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
     } catch (e) {
-        console.log("Config load karne mein error aayi, default use ho raha hai.");
+        console.log("Config load karne mein error aayi.");
     }
 }
 
-const TOKEN = process.env.BOT_TOKEN || "$BOT_TOKEN";
-const CLIENT_ID = process.env.CLIENT_ID || "$CLIENT_ID";
+const TOKEN = "$BOT_TOKEN";
+const CLIENT_ID = "$CLIENT_ID";
 const ADMIN_ID = "$ADMIN_ID";
 
 const commands = [
@@ -111,8 +111,8 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 })();
 
 client.once('ready', () => {
-    console.log(`[ONLINE] CJH Security Bot ${client.user.tag} successfully online ho chuka hai!`);
-    client.user.setActivity('CJH Bot | /security', { type: 3 });
+    console.log(\`[ONLINE] CJH Bot \${client.user.tag} successfully online ho chuka hai!\`);
+    client.user.setActivity('CJH Bot | /security', { type: ActivityType.Watching });
 });
 
 client.on('messageCreate', async message => {
@@ -129,7 +129,7 @@ client.on('messageCreate', async message => {
             if (member && member.moderatable) {
                 await member.timeout(config.timeoutDuration, 'Using prohibited abusive language (Auto-Security)');
                 
-                const warnMsg = await message.channel.send(`⚠️ <@${message.author.id}>, galat bhasha ka prayog karne ke liye aapko **10 minutes** ka timeout de diya gaya hai!`);
+                const warnMsg = await message.channel.send(\`⚠️ <@\${message.author.id}>, galat bhasha ka prayog karne ke liye aapko **10 minutes** ka timeout de diya gaya hai!\`);
                 setTimeout(() => warnMsg.delete().catch(() => {}), 5000);
             }
         } catch (e) {
@@ -143,7 +143,7 @@ client.on('messageCreate', async message => {
     const cmd = args.shift().toLowerCase();
 
     if (cmd === 'ping') {
-        message.reply(`Pong! Latency: ${client.ws.ping}ms`);
+        message.reply(\`Pong! Latency: \${client.ws.ping}ms\`);
     }
 });
 
@@ -152,7 +152,7 @@ client.on('interactionCreate', async interaction => {
 
     try {
         if (interaction.commandName === 'ping') {
-            await interaction.reply({ content: `🏓 Pong! ${client.ws.ping}ms`, ephemeral: true });
+            await interaction.reply({ content: \`🏓 Pong! \${client.ws.ping}ms\`, ephemeral: true });
         } else if (interaction.commandName === 'security') {
             const embed = new EmbedBuilder()
                 .setColor(0x00FF00)
@@ -171,7 +171,7 @@ client.on('interactionCreate', async interaction => {
                 guildId: interaction.guild.id,
                 adapterCreator: interaction.guild.voiceAdapterCreator,
             });
-            await interaction.reply({ content: `🔊 Successfully voice channel mein join ho gaya hoon!`, ephemeral: true });
+            await interaction.reply({ content: \`🔊 Successfully voice channel mein join ho gaya hoon!\`, ephemeral: true });
         }
     } catch (err) {
         console.error("Interaction error:", err);
