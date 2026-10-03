@@ -1,26 +1,28 @@
 #!/bin/bash
 
-# Error-Free Discord Security Bot Management Panel
+# ==========================================
+#              CJH BOT PANEL
+# ==========================================
 
 show_menu() {
     clear
     echo "=========================================="
-    echo "    DISCORD SECURITY BOT MANAGEMENT PANEL"
+    echo "               CJH BOT                    "
     echo "=========================================="
     echo "1. CREATE Bot (Setup & Run)"
     echo "2. UNINSTALL Bot (Stop & Delete)"
     echo "3. UPDATE Bot (Pull latest from GitHub)"
     echo "4. START Bot (Select from list)"
     echo "5. STOP Bot (Select from list)"
-    echo "6. Exit"
+    echo "6. VPS Deploy Bot (Coming Soon)"
+    echo "7. Exit"
     echo "=========================================="
-    read -p "Apna option chunein (1-6): " choice
+    read -p "Apna option chunein (1-7): " choice
 }
 
 create_bot() {
     echo "[+] Bot Setup shuru ho raha hai..."
     
-    # Node.js check & install
     if ! command -v node &> /dev/null; then
         echo "[+] Node.js install kiya ja raha hai..."
         curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
@@ -42,22 +44,30 @@ create_bot() {
     cat << 'EOF' > package.json
 {
   "name": "discord-security-bot",
-  "version": "7.0.0",
-  "description": "Error-Free Discord Security & Auto-Moderation Bot",
+  "version": "8.0.0",
+  "description": "Advanced Discord Security & Moderation Bot",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "@discordjs/voice": "^0.16.1",
-    "sodium-native": "^4.1.1"
+    "@discordjs/voice": "^0.16.1"
   }
 }
 EOF
 
-    cat << EOF > bot.js
+    cat << EOF > config.json
+{
+  "prefix": "!",
+  "timeoutDuration": 600000,
+  "badWords": ["gaali1", "gaali2", "bsdk", "mc", "bc", "madarchod", "behanchod", "gali"]
+}
+EOF
+
+    cat << 'EOF' > bot.js
 const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const fs = require('fs');
 
 const client = new Client({
     intents: [
@@ -69,40 +79,47 @@ const client = new Client({
     ]
 });
 
-const TOKEN = "$BOT_TOKEN";
-const CLIENT_ID = "$CLIENT_ID";
-const ADMIN_ID = "$ADMIN_ID";
+let config = { prefix: "!", timeoutDuration: 600000, badWords: ["gaali1", "gaali2", "bsdk", "mc", "bc", "madarchod", "behanchod", "gali"] };
+if (fs.existsSync('./config.json')) {
+    try {
+        config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
+    } catch (e) {
+        console.log("Config load karne mein error aayi, default use ho raha hai.");
+    }
+}
 
-// Prohibited / Bad Words List for Security Auto-Moderation
-const badWords = ['gaali1', 'gaali2', 'bsdk', 'mc', 'bc', 'madarchod', 'behanchod', 'gali'];
+const TOKEN = process.env.BOT_TOKEN || "$BOT_TOKEN";
+const CLIENT_ID = process.env.CLIENT_ID || "$CLIENT_ID";
+const ADMIN_ID = "$ADMIN_ID";
 
 const commands = [
     new SlashCommandBuilder().setName('ping').setDescription('Bot ki latency check karein'),
     new SlashCommandBuilder().setName('security').setDescription('Server security status dekhein'),
-    new SlashCommandBuilder().setName('joinvc').setDescription('Bot ko aapke voice channel me bulayein')
+    new SlashCommandBuilder().setName('joinvc').setDescription('Bot ko aapke voice channel mein bulayein')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
     try {
+        console.log('[+] Slash commands register ki ja rahi hain...');
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+        console.log('[+] Slash commands successfully register ho gayi hain!');
     } catch (error) {
-        console.error("Slash commands register karne me error:", error);
+        console.error("Slash commands register karne mein error:", error);
     }
 })();
 
 client.once('ready', () => {
-    console.log(\`[ONLINE] Security Bot \${client.user.tag} successfully online ho chuka hai!\`);
-    client.user.setActivity('Protecting Server | /security', { type: 3 });
+    console.log(`[ONLINE] CJH Security Bot ${client.user.tag} successfully online ho chuka hai!`);
+    client.user.setActivity('CJH Bot | /security', { type: 3 });
 });
 
-// Auto-Security: Message Anti-Abuse (Timeout 10 mins)
 client.on('messageCreate', async message => {
     if (message.author.bot || !message.guild) return;
 
     const contentLower = message.content.toLowerCase();
-    const hasBadWord = badWords.some(word => contentLower.includes(word));
+    const hasBadWord = config.badWords.some(word => contentLower.includes(word));
 
     if (hasBadWord) {
         try {
@@ -110,9 +127,9 @@ client.on('messageCreate', async message => {
 
             const member = message.guild.members.cache.get(message.author.id);
             if (member && member.moderatable) {
-                await member.timeout(10 * 60 * 1000, 'Using prohibited abusive language (Auto-Security)');
+                await member.timeout(config.timeoutDuration, 'Using prohibited abusive language (Auto-Security)');
                 
-                const warnMsg = await message.channel.send(\`⚠️ <@\${message.author.id}>, galat bhasha ka prayog karne ke liye aapko **10 minutes** ka timeout de diya gaya hai!\`);
+                const warnMsg = await message.channel.send(`⚠️ <@${message.author.id}>, galat bhasha ka prayog karne ke liye aapko **10 minutes** ka timeout de diya gaya hai!`);
                 setTimeout(() => warnMsg.delete().catch(() => {}), 5000);
             }
         } catch (e) {
@@ -121,27 +138,26 @@ client.on('messageCreate', async message => {
         return;
     }
 
-    if (!message.content.startsWith('!')) return;
-    const args = message.content.slice(1).trim().split(/ +/);
+    if (!message.content.startsWith(config.prefix)) return;
+    const args = message.content.slice(config.prefix.length).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
 
     if (cmd === 'ping') {
-        message.reply(\`Pong! Latency: \${client.ws.ping}ms\`);
+        message.reply(`Pong! Latency: ${client.ws.ping}ms`);
     }
 });
 
-// Slash Commands Handler
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     try {
         if (interaction.commandName === 'ping') {
-            await interaction.reply({ content: \`🏓 Pong! \${client.ws.ping}ms\`, ephemeral: true });
+            await interaction.reply({ content: `🏓 Pong! ${client.ws.ping}ms`, ephemeral: true });
         } else if (interaction.commandName === 'security') {
             const embed = new EmbedBuilder()
                 .setColor(0x00FF00)
-                .setTitle('🛡️ Server Security Status')
-                .setDescription('Anti-Abuse & Auto-Timeout system fully active hai. Koi bhi abusive word use karne par 10 min ka timeout mil jayega.')
+                .setTitle('🛡️ CJH Bot Server Security Status')
+                .setDescription('Anti-Abuse & Auto-Timeout system fully active hai.')
                 .setTimestamp();
             await interaction.reply({ embeds: [embed], ephemeral: true });
         } else if (interaction.commandName === 'joinvc') {
@@ -155,7 +171,7 @@ client.on('interactionCreate', async interaction => {
                 guildId: interaction.guild.id,
                 adapterCreator: interaction.guild.voiceAdapterCreator,
             });
-            await interaction.reply({ content: \`🔊 Successfully voice channel mein join ho gaya hoon!\`, ephemeral: true });
+            await interaction.reply({ content: `🔊 Successfully voice channel mein join ho gaya hoon!`, ephemeral: true });
         }
     } catch (err) {
         console.error("Interaction error:", err);
@@ -179,7 +195,7 @@ EOF
     pm2 save
     cd ..
     echo "=========================================="
-    echo " ✅ BOT SUCCESSFUL CREATE & START HO GAYA!"
+    echo " ✅ CJH BOT SUCCESSFUL CREATE & START!"
     echo "=========================================="
     read -p "Menu par wapas jaane ke liye Enter dabayein..."
 }
@@ -235,6 +251,19 @@ stop_bot() {
     read -p "Menu par wapas jaane ke liye Enter dabayein..."
 }
 
+vps_deploy_bot() {
+    clear
+    echo "=========================================="
+    echo "         CJH VPS DEPLOY BOT               "
+    echo "=========================================="
+    echo ""
+    echo "       🚀 COMING SOON! 🚀                "
+    echo "  Yeh feature jald hi update kiya jayega. "
+    echo ""
+    echo "=========================================="
+    read -p "Menu par wapas jaane ke liye Enter dabayein..."
+}
+
 while true; do
     show_menu
     case $choice in
@@ -243,7 +272,8 @@ while true; do
         3) update_bot ;;
         4) start_bot ;;
         5) stop_bot ;;
-        6) exit 0 ;;
+        6) vps_deploy_bot ;;
+        7) exit 0 ;;
         *) echo "Galat option! Dobara koshish karein." ; sleep 2 ;;
     esac
 done
