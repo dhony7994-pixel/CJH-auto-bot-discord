@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Discord Security & Multi-Bot Management Panel Script
+# Error-Free Discord Security Bot Management Panel
 
 show_menu() {
     clear
@@ -20,8 +20,8 @@ show_menu() {
 create_bot() {
     echo "[+] Bot Setup shuru ho raha hai..."
     
-    if ! command -v node &> /dev/null
-    then
+    # Node.js check & install
+    if ! command -v node &> /dev/null; then
         echo "[+] Node.js install kiya ja raha hai..."
         curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
         sudo apt-get install -y nodejs
@@ -42,14 +42,16 @@ create_bot() {
     cat << 'EOF' > package.json
 {
   "name": "discord-security-bot",
-  "version": "6.0.0",
-  "description": "Advanced Discord Security & Auto-Moderation Bot",
+  "version": "7.0.0",
+  "description": "Error-Free Discord Security & Auto-Moderation Bot",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
-    "discord.js": "^14.14.1"
+    "discord.js": "^14.14.1",
+    "@discordjs/voice": "^0.16.1",
+    "sodium-native": "^4.1.1"
   }
 }
 EOF
@@ -71,15 +73,13 @@ const TOKEN = "$BOT_TOKEN";
 const CLIENT_ID = "$CLIENT_ID";
 const ADMIN_ID = "$ADMIN_ID";
 
-// Bad Words List for Auto-Moderation / Security
-const badWords = ['gaali1', 'gaali2', 'bsdk', 'mc', 'bc', 'madarchod', 'behanchod']; // Aap yahan aur bhi words add kar sakte hain
+// Prohibited / Bad Words List for Security Auto-Moderation
+const badWords = ['gaali1', 'gaali2', 'bsdk', 'mc', 'bc', 'madarchod', 'behanchod', 'gali'];
 
 const commands = [
     new SlashCommandBuilder().setName('ping').setDescription('Bot ki latency check karein'),
     new SlashCommandBuilder().setName('security').setDescription('Server security status dekhein'),
-    new SlashCommandBuilder()
-        .setName('joinvc')
-        .setDescription('Bot ko aapke voice channel me bulayein')
+    new SlashCommandBuilder().setName('joinvc').setDescription('Bot ko aapke voice channel me bulayein')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -88,16 +88,16 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
     try {
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
     } catch (error) {
-        console.error(error);
+        console.error("Slash commands register karne me error:", error);
     }
 })();
 
 client.once('ready', () => {
-    console.log(\`[ONLINE] Security Bot \php \${client.user.tag} active ho chuka hai!\`);
+    console.log(\`[ONLINE] Security Bot \${client.user.tag} successfully online ho chuka hai!\`);
     client.user.setActivity('Protecting Server | /security', { type: 3 });
 });
 
-// Auto-Security: Message Anti-Badword / Abuse Detection (Timeout 10 mins)
+// Auto-Security: Message Anti-Abuse (Timeout 10 mins)
 client.on('messageCreate', async message => {
     if (message.author.bot || !message.guild) return;
 
@@ -106,10 +106,8 @@ client.on('messageCreate', async message => {
 
     if (hasBadWord) {
         try {
-            // Delete abusive message
             await message.delete().catch(() => {});
 
-            // Give 10 minutes timeout (600 * 1000 ms)
             const member = message.guild.members.cache.get(message.author.id);
             if (member && member.moderatable) {
                 await member.timeout(10 * 60 * 1000, 'Using prohibited abusive language (Auto-Security)');
@@ -118,12 +116,11 @@ client.on('messageCreate', async message => {
                 setTimeout(() => warnMsg.delete().catch(() => {}), 5000);
             }
         } catch (e) {
-            console.error("Timeout dene me error aayi:", e);
+            console.error("Timeout dene mein error aayi:", e);
         }
         return;
     }
 
-    // Prefix commands handler
     if (!message.content.startsWith('!')) return;
     const args = message.content.slice(1).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
@@ -137,44 +134,52 @@ client.on('messageCreate', async message => {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
-    if (interaction.commandName === 'ping') {
-        await interaction.reply({ content: \`🏓 Pong! \${client.ws.ping}ms\`, ephemeral: true });
-    } else if (interaction.commandName === 'security') {
-        const embed = new EmbedBuilder()
-            .setColor(0x00FF00)
-            .setTitle('🛡️ Server Security Status')
-            .setDescription('Anti-Abuse & Auto-Timeout systemfully active hai. Koi bhi gaali dene par 10 min ka timeout mil jayega.')
-            .setTimestamp();
-        await interaction.reply({ embeds: [embed], ephemeral: true });
-    } else if (interaction.commandName === 'joinvc') {
-        const memberChannel = interaction.member.voice.channel;
-        if (!memberChannel) {
-            return interaction.reply({ content: '❌ Pehle aapko kisi Voice Channel me judna hoga!', ephemeral: true });
-        }
-        try {
+    try {
+        if (interaction.commandName === 'ping') {
+            await interaction.reply({ content: \`🏓 Pong! \${client.ws.ping}ms\`, ephemeral: true });
+        } else if (interaction.commandName === 'security') {
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle('🛡️ Server Security Status')
+                .setDescription('Anti-Abuse & Auto-Timeout system fully active hai. Koi bhi abusive word use karne par 10 min ka timeout mil jayega.')
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed], ephemeral: true });
+        } else if (interaction.commandName === 'joinvc') {
+            const memberChannel = interaction.member.voice.channel;
+            if (!memberChannel) {
+                return interaction.reply({ content: '❌ Pehle aapko kisi Voice Channel mein judna hoga!', ephemeral: true });
+            }
             const { joinVoiceChannel } = require('@discordjs/voice');
             joinVoiceChannel({
                 channelId: memberChannel.id,
                 guildId: interaction.guild.id,
                 adapterCreator: interaction.guild.voiceAdapterCreator,
             });
-            await interaction.reply({ content: \`🔊 Successfully voice channel me join ho gaya hoon!\`, ephemeral: true });
-        } catch (err) {
-            await interaction.reply({ content: '❌ Voice channel join karne me samasya aayi.', ephemeral: true });
+            await interaction.reply({ content: \`🔊 Successfully voice channel mein join ho gaya hoon!\`, ephemeral: true });
         }
+    } catch (err) {
+        console.error("Interaction error:", err);
     }
 });
 
-client.login(TOKEN);
+client.login(TOKEN).catch(err => {
+    console.error("❌ Bot login fail ho gaya! Token check karein:", err);
+});
 EOF
 
+    echo "[+] Dependencies install ki ja rahi hain..."
     npm install
-    if ! command -v pm2 &> /dev/null; then sudo npm install -g pm2; fi
+    
+    if ! command -v pm2 &> /dev/null; then
+        sudo npm install -g pm2
+    fi
+
+    pm2 delete "$BOT_NAME" 2>/dev/null
     pm2 start bot.js --name "$BOT_NAME"
     pm2 save
     cd ..
     echo "=========================================="
-    echo " SECURITY BOT CREATE AUR START HO GAYA HAI!"
+    echo " ✅ BOT SUCCESSFUL CREATE & START HO GAYA!"
     echo "=========================================="
     read -p "Menu par wapas jaane ke liye Enter dabayein..."
 }
@@ -182,7 +187,7 @@ EOF
 uninstall_bot() {
     echo "--- Active Bots List ---"
     pm2 list
-    read -p "Jis bot ko delete/uninstall karna hai uska PM2 Name daalein: " TARGET_BOT
+    read -p "Jis bot ko delete/uninstall karna hai uska Name daalein: " TARGET_BOT
     if [ ! -z "$TARGET_BOT" ]; then
         pm2 delete "$TARGET_BOT" 2>/dev/null
         rm -rf "$TARGET_BOT"
@@ -204,12 +209,11 @@ update_bot() {
 
 start_bot() {
     echo "=========================================="
-    echo "      CHALANE KE LIYE AVAILABLE BOTS      "
+    echo "      CHALANE KE LIYE BOTS LIST           "
     echo "=========================================="
-    # List all stopped or existing bots from PM2 list
     pm2 list
     echo ""
-    read -p "Jiss bot ko start karna hai uska naam (Name) daalein: " START_NAME
+    read -p "Jiss bot ko start karna hai uska naam daalein: " START_NAME
     if [ ! -z "$START_NAME" ]; then
         pm2 start "$START_NAME" 2>/dev/null || pm2 resurrect
         echo "✅ Bot '$START_NAME' start kar diya gaya hai!"
@@ -219,14 +223,14 @@ start_bot() {
 
 stop_bot() {
     echo "=========================================="
-    echo "        ROKNE KE LIYE ACTIVE BOTS         "
+    echo "        ROKNE KE LIYE BOTS LIST           "
     echo "=========================================="
     pm2 list
     echo ""
-    read -p "Jiss bot ko stop/off karna hai uska naam (Name) daalein: " STOP_NAME
+    read -p "Jiss bot ko stop karna hai uska naam daalein: " STOP_NAME
     if [ ! -z "$STOP_NAME" ]; then
         pm2 stop "$STOP_NAME" 2>/dev/null
-        echo "✅ Bot '$STOP_NAME' ko offline/stop kar diya gaya hai!"
+        echo "✅ Bot '$STOP_NAME' ko stop kar diya gaya hai!"
     fi
     read -p "Menu par wapas jaane ke liye Enter dabayein..."
 }
