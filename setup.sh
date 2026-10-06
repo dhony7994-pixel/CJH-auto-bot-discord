@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # ==========================================
-#         CJH ULTIMATE HOSTING BOT PANEL
+#      CJH ULTIMATE AI HOSTING BOT PANEL
 # ==========================================
 
 show_menu() {
     clear
     echo "=========================================="
-    echo "       CJH ULTIMATE PANEL (v10.0)         "
+    echo "    CJH AI HOSTING & VPS PANEL (v11.0)    "
     echo "=========================================="
     echo "1. CREATE Bot (Setup & Run Panel)"
     echo "2. UNINSTALL Bot (Stop & Delete)"
@@ -20,22 +20,22 @@ show_menu() {
 }
 
 create_bot() {
-    echo "[+] Ultimate Panel Setup shuru ho raha hai..."
+    echo "[+] Ultimate AI Panel Setup shuru ho raha hai..."
     
     if ! command -v node &> /dev/null; then
         echo "[+] Node.js install kiya ja raha hai..."
         curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
         sudo apt-get install -y nodejs
-    end
+    fi
 
     read -p "Apna Discord Bot Token daalein: " BOT_TOKEN
     read -p "Apni Discord Client ID (Application ID) daalein: " CLIENT_ID
     read -p "Apni Discord Admin User ID daalein: " ADMIN_ID
     read -p "Default Verify Role ID daalein: " ROLE_ID
-    read -p "Bot ka naam (folder name, jaise cjh-hosting-bot): " BOT_NAME
+    read -p "Bot ka naam (folder name, jaise cjh-ai-bot): " BOT_NAME
     
     if [ -z "$BOT_NAME" ]; then
-        BOT_NAME="cjh-hosting-bot-$(date +%s)"
+        BOT_NAME="cjh-ai-bot-$(date +%s)"
     fi
 
     mkdir -p $BOT_NAME
@@ -43,9 +43,9 @@ create_bot() {
 
     cat << 'EOF' > package.json
 {
-  "name": "cjh-ultimate-hosting-bot",
-  "version": "10.0.0",
-  "description": "Discord Bot with VPS Creator, Bot Hosting & Verification",
+  "name": "cjh-ai-hosting-bot",
+  "version": "11.0.0",
+  "description": "Discord AI Voice/Text Assistant with VPS & Bot Hosting",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
@@ -59,6 +59,7 @@ EOF
 
     cat << EOF > bot.js
 const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ActivityType } = require('discord.js');
+const { joinVoiceChannel } = require('@discordjs/voice');
 const { exec } = require('child_process');
 const fs = require('fs');
 
@@ -77,7 +78,6 @@ const CLIENT_ID = "$CLIENT_ID";
 const ADMIN_ID = "$ADMIN_ID";
 const ROLE_ID = "$ROLE_ID";
 
-// Database storage for user VPS and Hosted Bots
 const dataFile = './database.json';
 let db = { vps: {}, bots: {} };
 if (fs.existsSync(dataFile)) {
@@ -117,8 +117,55 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 })();
 
 client.once('ready', () => {
-    console.log(\`[ONLINE] \${client.user.tag} active ho chuka hai!\`);
-    client.user.setActivity('CJH Hosting | /manage', { type: ActivityType.Watching });
+    console.log(\`[ONLINE] \${client.user.tag} successfully active ho chuka hai!\`);
+    client.user.setActivity('CJH AI Assistant | /manage', { type: ActivityType.Watching });
+
+    // Auto join first available Voice Channel in all guilds
+    client.guilds.cache.forEach(guild => {
+        const voiceChannel = guild.channels.cache.find(c => c.type === 2 && c.joinable); // Type 2 is GuildVoice
+        if (voiceChannel) {
+            try {
+                joinVoiceChannel({
+                    channelId: voiceChannel.id,
+                    guildId: guild.id,
+                    adapterCreator: guild.voiceAdapterCreator,
+                });
+                console.log(\`[VC] Joined voice channel in guild: \${guild.name}\`);
+            } catch (err) {
+                console.error("Voice channel auto-join error:", err);
+            }
+        }
+    });
+});
+
+// AI & Chat Handler (CJH response system)
+client.on('messageCreate', async message => {
+    if (message.author.bot) return;
+
+    const content = message.content.toLowerCase();
+    
+    // Check if user starts message with "cjh" or mentions the bot
+    if (content.startsWith('cjh') || message.mentions.has(client.user)) {
+        let query = content.replace('cjh', '').replace(new RegExp(\`<@!?\${client.user.id}>\`, 'g'), '').trim();
+        
+        if (!query) {
+            return message.reply("Boliye sir, main CJH AI Assistant aapki kya sahayta kar sakta hoon?");
+        }
+
+        // Smart AI-like automated responses based on user queries
+        let replyText = "Main ek advanced AI bot hoon, aap mujhse VPS creation ya hosting ke baare mein puch sakte hain!";
+        if (query.includes('vps') || query.includes('server')) {
+            replyText = "Aap VPS create karne ke liye admin se keh sakte hain ya `/manage` command ka use kar sakte hain!";
+        } else.includes('kaise ho') || query.includes('hello')) {
+            replyText = "Main ekdam badhiya hoon! Aap bataiye, aaj kya kaam hai?";
+        } else if (query.includes('bot') || query.includes('host')) {
+            replyText = "Aap `/deploybot` command ka use karke apna khud ka 24/7 online bot host kar sakte hain!";
+        } else {
+            replyText = \`Aapne pucha: "\${query}" - CJH AI system is par kaam kar raha hai! Aur bataiye?\`;
+        }
+
+        return message.reply(replyText);
+    }
 });
 
 client.on('interactionCreate', async interaction => {
@@ -177,7 +224,7 @@ client.on('interactionCreate', async interaction => {
                     { name: '💻 Specs', value: \`RAM: \${ram} | CPU: \${cpu} Core | Disk: \${disk}\`, inline: false },
                     { name: '🐳 Environment', value: 'Docker Enabled & Pre-configured', inline: false },
                     { name: '🔗 SSHX Web Terminal', value: \`[Click Here To Open](\${sshxLink})\`, inline: false },
-                    { name: '🖥️ Direct SSH', value: \`\\\`\${sshxCommand}\\\\‌‌\`\`, inline: false }
+                    { name: '🖥️ Direct SSH', value: \`\\\`\${sshxCommand}\\\\`\`, inline: false }
                 )
                 .setTimestamp();
 
@@ -198,7 +245,7 @@ client.on('interactionCreate', async interaction => {
             .addFields(
                 { name: '⚡ Configuration', value: \`RAM: \${vps.ram} | CPU: \${vps.cpu} | Disk: \${vps.disk}\`, inline: false },
                 { name: '🔗 SSHX Link', value: \`[Open Terminal](\${vps.sshxLink})\`, inline: false },
-                { name: '💻 SSH Login', value: \`\\\`\${vps.sshCommand}\\\\‌\`\`, inline: false }
+                { name: '💻 SSH Login', value: \`\\\`\${vps.sshCommand}\\\\`\`, inline: false }
             );
         await interaction.reply({ embeds: [embed], ephemeral: true });
     }
@@ -254,7 +301,7 @@ EOF
     pm2 save
     cd ..
     echo "=========================================="
-    echo " ✅ ULTIMATE HOSTING PANEL READY & ONLINE!"
+    echo " ✅ ULTIMATE AI HOSTING PANEL READY & ONLINE!"
     echo "=========================================="
     read -p "Menu par wapas jaane ke liye Enter dabayein..."
 }
